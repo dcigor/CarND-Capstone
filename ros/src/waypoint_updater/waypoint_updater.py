@@ -33,20 +33,31 @@ class WaypointUpdater(object):
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
 
-
-        self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
+        self.final_waypoints_pub = rospy.Publisher('/final_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
+        self.waypoints   = []   # all waypoints delivered to us from /base_waypoints publisher
+        self.current_pos = None # current position of the car, initially unset
 
+        #publish /final_waypoints at 1 Hz
+        self.publish(1)
         rospy.spin()
 
     def pose_cb(self, msg):
         # TODO: Implement
+        self.current_pos = msg
         pass
 
-    def waypoints_cb(self, waypoints):
+    def waypoints_cb(self, lane):
         # TODO: Implement
-        pass
+        if len(lane.waypoints) == len(self.waypoints) and \
+            lane.waypoints[ 0].pose.pose.position.x == self.waypoints[ 0].pose.pose.position.x and \
+            lane.waypoints[-1].pose.pose.position.x == self.waypoints[-1].pose.pose.position.x:
+            #we received exactly the same waypoints again: ignore
+            return
+
+        #remember new waypoints
+        self.waypoints = lane.waypoints
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
@@ -70,6 +81,49 @@ class WaypointUpdater(object):
             wp1 = i
         return dist
 
+    def squared_distance(self, a, b):
+        dx, dy, dz = a.x-b.x, a.y-b.y, a.z-b.z
+        return dx*dx + dy*dy  + dz*dz
+
+    # finds index of the nearest waypoint to the current point.
+    # returns index or -1 if points or current position are not set
+    def index_of_nearest_point(self):
+        if self.current_pos is None:
+            return -1
+
+        curr_pos   = self.current_pos.pose.position
+        best_index = -1
+        best_dist  = 1000000
+        for i in range(len(self.waypoints)):
+            dist = self.squared_distance(curr_pos, self.waypoints[i].pose.pose.position)
+            if dist < best_dist:
+                best_index = i
+                best_dist  = dist
+        return best_index
+
+    def publish(self, in_rate):
+        rate = rospy.Rate(in_rate)
+        while not rospy.is_shutdown():
+            best_index = self.index_of_nearest_point()
+            if best_index == -1:
+                rate.sleep() # did not receive curr position or points yet
+                continue
+
+            # the nearest waypoint might behind us.
+            # TODO: consider using direction from the Quarternion of the current position to
+            # figure it out exactly.
+            # for now instead: simply ignore the first point
+            best_index += 1
+
+            lane = Lane()
+            lane.header.frame_id = '/world'
+            lane.header.stamp = rospy.Time(0)
+
+            # use 200(LOOKAHEAD_WPS) of the existing points beginning at the best position
+            lane.waypoints = self.waypoints[best_index : best_index+LOOKAHEAD_WPS]
+
+            self.final_waypoints_pub.publish(lane)
+            rate.sleep()
 
 if __name__ == '__main__':
     try:
