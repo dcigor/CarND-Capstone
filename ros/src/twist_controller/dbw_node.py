@@ -64,6 +64,8 @@ class DBWNode(object):
         self.loop()
 
     def loop(self):
+        rospy.spin() # nothing to do here yet
+
         rate = rospy.Rate(50) # 50Hz
         while not rospy.is_shutdown():
             # TODO: Get predicted throttle, brake, and steering using `twist_controller`
@@ -104,7 +106,13 @@ class DBWNode(object):
         self.dbw_enabled = enabled
 
     def twist_cb(self, twist):
-        pass
+        if self.dbw_enabled == False:
+            return
+
+        # pass the throttle and steering info to the car
+        speed = twist.twist.linear.x
+        steer = twist.twist.angular.z
+        self.publish(speed, 0.0, steer)
 
 if __name__ == '__main__':
     DBWNode()
