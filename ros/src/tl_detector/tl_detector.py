@@ -11,6 +11,8 @@ import tf
 import cv2
 import yaml
 import math
+import numpy as np
+import cv2
 
 STATE_COUNT_THRESHOLD = 3
 
@@ -63,7 +65,6 @@ class TLDetector(object):
 
     def pose_cb(self, msg):
         self.pose = msg
-        light = self.find_nearest_light()
 
     def squared_dist(self, dx, dy):
         return dx*dx+dy*dy
@@ -91,7 +92,6 @@ class TLDetector(object):
         if best_dist > 10000 or self.squared_dist(best_light[0]-x0, best_light[1]-y0) < best_dist:
             return []
 
-        rospy.logerr("light %d", math.sqrt(best_dist))
         return best_light
 
     def waypoints_cb(self, waypoints):
@@ -214,6 +214,17 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
+        light = self.find_nearest_light()
+        if len(light) == 0:
+            return -1, TrafficLight.UNKNOWN
+
+        color, pixel_count = self.get_light_color()
+        if color == TrafficLight.UNKNOWN:
+            return -1, TrafficLight.UNKNOWN
+
+        wp_index = self.nearest_waypoint(light[0], light[1])
+        return wp_index, color
+
         light = None
         light_positions = self.config['light_positions']
         if(self.pose):
@@ -226,6 +237,45 @@ class TLDetector(object):
             return light_wp, state
         self.waypoints = None
         return -1, TrafficLight.UNKNOWN
+
+    #currently: detect red color only, as the car can proceed otherwise as if it there was no light.
+    #TODO: detect green and yellow lights as well
+    def get_light_color(self):
+        #this is an image above the road, exactly where the light should be
+        img = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+
+        #filter red pixels in HLS color space
+        hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+        hue = hls[:,:,0]
+        lum = hls[:,:,1]
+        sat = hls[:,:,2]
+
+        red = np.zeros_like(hue)
+        #the hue of red color wraps: it either a small or a large value.
+        red[((hue < 20) | (hue>150)) & (lum>50) & (sat>150)] = 255
+
+        #use erosion to eliminate small noise
+        kernel = np.ones((5,5),np.uint8)
+        eroded = cv2.erode(red, kernel, iterations = 1)
+
+        #how many pixels are red?
+        res = np.count_nonzero(red)
+        if res > 100: # assume red pixels only belong to the traffic light
+            return TrafficLight.RED, res
+
+        return TrafficLight.UNKNOWN, res
+
+    def nearest_waypoint(self, x, y):
+        best_index = 0
+        best_dist  = 1000000
+        waypoints  = self.final_waypoints.waypoints
+        for i in range(len(waypoints)):
+            pos  = waypoints[i].pose.pose.position
+            dist = self.squared_dist(x-pos.x, y-pos.y)
+            if dist < best_dist:
+                best_index = i
+                best_dist  = dist
+        return best_index
 
 if __name__ == '__main__':
     try:
