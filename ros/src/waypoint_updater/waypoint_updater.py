@@ -3,8 +3,10 @@
 import rospy
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
+from std_msgs.msg import Int32
 
 import math
+import copy
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -32,21 +34,23 @@ class WaypointUpdater(object):
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
 
         self.final_waypoints_pub = rospy.Publisher('/final_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
         self.waypoints   = []   # all waypoints delivered to us from /base_waypoints publisher
         self.current_pos = None # current position of the car, initially unset
+        self.red_light_waypoint_index = -1
 
-        #publish /final_waypoints at 1 Hz
-        self.publish(1)
+        #publish /final_waypoints periodically
+        self.publish(10)
+
         rospy.spin()
 
     def pose_cb(self, msg):
         # TODO: Implement
         self.current_pos = msg
-        pass
 
     def waypoints_cb(self, lane):
         # TODO: Implement
@@ -61,7 +65,7 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+        self.red_light_waypoint_index = msg.data
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -121,6 +125,12 @@ class WaypointUpdater(object):
 
             # use 200(LOOKAHEAD_WPS) of the existing points beginning at the best position
             lane.waypoints = self.waypoints[best_index : best_index+LOOKAHEAD_WPS]
+
+            # stop if red light is ahead
+            if self.red_light_waypoint_index > 5:
+                lane.waypoints = copy.deepcopy(lane.waypoints)
+                for w in lane.waypoints:
+                    w.twist.twist.linear.x = 0
 
             self.final_waypoints_pub.publish(lane)
             rate.sleep()
