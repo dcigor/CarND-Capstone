@@ -8,8 +8,6 @@ import math
 
 from twist_controller import Controller
 
-ONE_MPH = 0.44704
-
 '''
 You can build this node only after you have built (or partially built) the `waypoint_updater` node.
 
@@ -35,7 +33,7 @@ that we have created in the `__init__` function.
 
 class DBWNode(object):
     def __init__(self):
-        rospy.init_node('dbw_node', log_level=rospy.INFO)
+        rospy.init_node('dbw_node')
 
         vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35)
         fuel_capacity = rospy.get_param('~fuel_capacity', 13.5)
@@ -57,51 +55,16 @@ class DBWNode(object):
 
         # TODO: Create `TwistController` object
         # self.controller = TwistController(<Arguments you wish to provide>)
-	
-
-	self.controller = Controller(vehicle_mass, fuel_capacity, wheel_base, wheel_radius, steer_ratio, 0.1, max_lat_accel, max_steer_angle, brake_deadband)
 
         # TODO: Subscribe to all the topics you need to
-	rospy.Subscriber('/current_velocity',TwistStamped, self.speed_cb)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cb)
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
-
         self.dbw_enabled = False
-
-	self.speed = 0
-	self.target_long_speed = 0
-	self.target_yaw_rate  = 0
-
-	self.sample_rate = 5 #10Hz
-
-	self.now = None
-	self.prev_now = rospy.get_rostime()
-
-
 
         self.loop()
 
     def loop(self):
-        rate = rospy.Rate(self.sample_rate) 
-        while not rospy.is_shutdown():
-            # TODO: Get predicted throttle, brake, and steering using `twist_controller`
-            # You should only publish the control commands if dbw is enabled
-            # throttle, brake, steering = self.controller.control(<proposed linear velocity>,
-            #                                                     <proposed angular velocity>,
-            #                                                     <current linear velocity>,
-            #                                                     <dbw status>,
-            #                                                     <any other argument you need>)
-		
-		self.now = rospy.get_rostime()	#Store current time
-		dt = (self.now - self.prev_now).to_sec()	#Calculate delta with previous time
-		self.prev_now = self.now	#Store current time for next iteartion
-
-		throttle, brake, steering = self.controller.control(self.target_long_speed, self.target_yaw_rate, self.speed, self.dbw_enabled, dt)
-		
-        	self.publish(throttle, brake, steering)		
-
- 		rate.sleep()
-
+        rospy.spin() # nothing to do here yet
 
     def publish(self, throttle, brake, steer):
         tcmd = ThrottleCmd()
@@ -121,24 +84,21 @@ class DBWNode(object):
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
 
-    def speed_cb(self, speed_msg):
-	self.speed = speed_msg.twist.linear.x #in m/s
-	
+    def dbw_enabled_cb(self, enabled):
+        self.dbw_enabled = enabled
 
-
-    def twist_cb(self, twist_msg):
+    def twist_cb(self, twist):
         if self.dbw_enabled == False:
             return
 
-	self.target_long_speed = twist_msg.twist.linear.x #In m/s
-	self.target_yaw_rate = twist_msg.twist.angular.z #In rad/s?
+        # pass the throttle and steering info to the car
+        speed = twist.twist.linear.x
+        steer = twist.twist.angular.z
+        brake = 0.0
+        if speed < 0.01:
+            brake = 100.0
 
-
-
-    def dbw_enabled_cb(self, dbw_msg):
-	self.dbw_enabled = dbw_msg	#receive DBW command
-	
-
+        self.publish(speed, brake, steer)
 
 if __name__ == '__main__':
     DBWNode()
