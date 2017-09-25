@@ -85,7 +85,7 @@ class DBWNode(object):
         self.brake_pub.publish(bcmd)
 
     def dbw_enabled_cb(self, enabled):
-        self.dbw_enabled = enabled
+        self.dbw_enabled = enabled.data
 
     def twist_cb(self, twist):
         if self.dbw_enabled == False:
