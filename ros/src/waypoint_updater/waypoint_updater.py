@@ -25,7 +25,6 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 
 LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
 
-
 class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
@@ -44,7 +43,7 @@ class WaypointUpdater(object):
         self.red_light_waypoint_index = -1
 
         #publish /final_waypoints periodically
-        self.publish(10)
+        self.publish(5)
 
         rospy.spin()
 
@@ -95,10 +94,22 @@ class WaypointUpdater(object):
         if self.current_pos is None:
             return -1
 
+        #step 1: jump by 100 points to find approximate range
+        step       = 100
         curr_pos   = self.current_pos.pose.position
         best_index = -1
         best_dist  = 1000000
-        for i in range(len(self.waypoints)):
+        for i in range(0, len(self.waypoints), step):
+            dist = self.squared_distance(curr_pos, self.waypoints[i].pose.pose.position)
+            if dist < best_dist:
+                best_index = i
+                best_dist  = dist
+
+        #go by 1 when we get closer
+        best_dist = 1000000
+        start     = max(best_index-step, 0)
+        end       = min(best_index+step, len(self.waypoints))
+        for i in range(start, end):
             dist = self.squared_distance(curr_pos, self.waypoints[i].pose.pose.position)
             if dist < best_dist:
                 best_index = i
@@ -127,13 +138,19 @@ class WaypointUpdater(object):
             lane.waypoints = self.waypoints[best_index : best_index+LOOKAHEAD_WPS]
 
             # stop if red light is ahead
+            speed = 10
             if self.red_light_waypoint_index > 5:
-                lane.waypoints = copy.deepcopy(lane.waypoints)
-                for w in lane.waypoints:
-                    w.twist.twist.linear.x = 0
+                speed = 0
+
+            for w in lane.waypoints:
+                w.twist.twist.linear.x = speed
 
             self.final_waypoints_pub.publish(lane)
             rate.sleep()
+
+            #this is an example of how to measure time it takes for a piece of code to execute 
+            #import timeit
+            #rospy.logerr("new %f", timeit.Timer(lambda: self.index_of_nearest_point()).timeit(number=100))
 
 if __name__ == '__main__':
     try:
