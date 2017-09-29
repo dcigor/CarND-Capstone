@@ -65,6 +65,10 @@ class Controller(object):
 		else:
 			self.act_brake = 0.0
 
+	if((targetLongSpeed == 0.0)&(current_speed < 1.0)): #If the vehicle is stationary and the target speed is 0, the vehicle shall apply brake actuation.
+		self.act_brake = 5.0* (self.m + self.fc*GAS_DENSITY) * self.wr
+		self.act_throttle = 0.0
+		self.longPID.reset()
 
 	### LATERAL
 
