@@ -71,7 +71,7 @@ class TLDetector(object):
 
     #find nearest light
     def find_nearest_light(self):
-        light_positions = self.config['light_positions']
+        light_positions = self.config['stop_line_positions']
         waypoints       = self.final_waypoints.waypoints
         if len(light_positions) == 0 or len(waypoints) < 2:
             return []
