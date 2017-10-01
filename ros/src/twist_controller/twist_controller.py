@@ -7,8 +7,8 @@ GAS_DENSITY = 2.858
 ONE_MPH = 0.44704
 
 #Long PID Parameters
-LON_KP = 20
-LON_KI = 0.1
+LON_KP = 2.0
+LON_KI = 0.01
 LON_KD = 0.0
 LON_MIN = -10.	#max deceleration
 LON_MAX = 100.	#max acceleration (max throttle position [%])
@@ -43,7 +43,7 @@ class Controller(object):
 		return 0.,0.,0.
 
 	### LONGITUDINAL
-	
+
 	#Calculate the error speed between the ego vehicle speed and the set speed
 	error_speed = targetLongSpeed - current_speed	
 

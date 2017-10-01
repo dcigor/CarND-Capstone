@@ -58,7 +58,7 @@ class DBWNode(object):
 
         # TODO: Create `TwistController` object
         # self.controller = TwistController(<Arguments you wish to provide>)
-	self.controller = Controller(vehicle_mass, fuel_capacity, wheel_base, wheel_radius, steer_ratio, 0.1, max_lat_accel, max_steer_angle, brake_deadband)
+	self.controller = Controller(vehicle_mass, fuel_capacity, wheel_base, wheel_radius, steer_ratio, 4.47, max_lat_accel, max_steer_angle, brake_deadband)
 
         # TODO: Subscribe to all the topics you need to
 	rospy.Subscriber('/current_velocity',TwistStamped, self.speed_cb)
@@ -70,7 +70,7 @@ class DBWNode(object):
 	self.target_long_speed = 0
 	self.target_yaw_rate  = 0
 
-	self.sample_rate = 5 #10Hz
+	self.sample_rate = 10 #10Hz
 
 	self.now = None
 	self.prev_now = rospy.get_rostime()
@@ -129,8 +129,7 @@ class DBWNode(object):
 		self.target_long_speed = min(MAX_SPEED_IN_VEHICLE, twist.twist.linear.x) #In m/s
 	else:
 		self.target_long_speed = twist.twist.linear.x #In m/s
-
-
+		
 	self.target_yaw_rate = twist.twist.angular.z #In rad/s?
 
 ## rgpadin: this is calculated in the function loop()
