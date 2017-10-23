@@ -87,8 +87,12 @@ class WaypointUpdater(object):
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
         for i in range(wp1, wp2+1):
-            dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
-            wp1 = i
+            try:
+                dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
+                wp1 = i
+            except IndexError:
+                dist += 0
+
         return dist
 
     def squared_distance(self, a, b):
